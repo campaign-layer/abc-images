@@ -1,82 +1,83 @@
-# ABC - Abundance Sovereign Stack
+# ABC — Abundance Sovereign Stack
 
-ABC Stack follows the same design and architecture an Ethereum, using Engine API. Each ABC node requires the deployment of two components:
-- ABC (Consensus): Receives new blocks and verifies validity
-- XYZ (Execution): Executes EVM transactions
+ABC Stack follows the same design and architecture as Ethereum, using the Engine API. Each ABC node requires the deployment of two components:
 
+- **ABC (Consensus)** — Receives new blocks and verifies validity
+- **XYZ (Execution)** — Executes EVM transactions
 
-### Prerequisites
+This repository contains the genesis files and reference configurations for chains running the ABC Stack.
+
+| Network | Folder |
+|---------|--------|
+| Camp mainnet (chain ID 484) | [`camp/mainnet`](./camp/mainnet) |
+| Camp testnet | [`camp/testnet`](./camp/testnet) |
+
+---
+
+## Prerequisites
 
 - Install [Docker](https://docs.docker.com/get-docker/)
 
+## Pull the images
 
-### Pull the images
+Camp publishes the ABC and XYZ images on GitHub Container Registry under the `campaign-layer` org:
 
 ```bash
-docker pull ghcr.io/gelatodigital/abc
-docker pull ghcr.io/gelatodigital/xyz
+docker pull ghcr.io/campaign-layer/abc:f6218b8
+docker pull ghcr.io/campaign-layer/xyz:f6218b8
 ```
 
-## Running with Docker
+`:f6218b8` is the current pinned tag — recommended for stability. `:latest` also points to the same image.
 
-#### Running ABC Node (Consensus Node)
+---
+
+## Running with Docker (generic template)
+
+For the exact post-cutover Camp mainnet configuration (sequencer pubkey, peer enode, feed URL, sequencer RPC), see [`camp/mainnet/README.md`](./camp/mainnet/README.md). The snippets below are a generic template — replace `${VARS}` with values from your chain's folder.
+
+### Running ABC Node (Consensus / read node CL)
 
 ```sh
-# Create data directory
 mkdir -p .tmp/abc
 
-# Run ABC consensus layer node
 docker run -d \
   --name abc \
+  --network host \
   -v $(pwd)/.tmp/abc:/data \
   -v $(pwd)/artifacts/jwt.hex:/jwt.hex \
-  -p 8545:8545 \
-  -p 9000:9000 \
-  ghcr.io/gelatodigital/abc node \
+  ghcr.io/campaign-layer/abc:f6218b8 node \
   --datadir /data \
   --execution.jwtsecret /jwt.hex \
-  --execution.endpoint "http://0.0.0.0:8451" \
+  --execution.endpoint "http://127.0.0.1:8451" \
   --http \
   --log.format json \
   --feed.ingress ${FEED_URL} \
   --sequencer.pubkey ${SEQUENCER_PUBLIC_KEY}
 ```
 
-#### Running XYZ Node (Execution Node)
+### Running XYZ Node (Execution / read node EL)
 
 ```sh
-# Create data directory
 mkdir -p .tmp/xyz
 
-# Run XYZ execution layer node
 docker run -d \
   --name xyz \
+  --network host \
   -v $(pwd)/.tmp/xyz:/data \
   -v $(pwd)/artifacts/jwt.hex:/jwt.hex \
   -v $(pwd)/artifacts/genesis.json:/genesis.json \
-  -p 8449:8449 \
-  -p 8450:8450 \
-  -p 8451:8451 \
-  -p 30303:30303 \
-  ghcr.io/gelatodigital/xyz node \
+  ghcr.io/campaign-layer/xyz:f6218b8 node \
   --chain /genesis.json \
   --datadir /data \
-  --http \
-  --http.api "eth,net,web3,debug,txpool" \
-  --http.addr "0.0.0.0" \
-  --http.port "8449" \
-  --ws \
-  --ws.addr "0.0.0.0" \
-  --ws.port "8450" \
-  --authrpc.addr "0.0.0.0" \
-  --authrpc.port "8451"
+  --http --http.api "eth,net,web3,debug,txpool" \
+  --http.addr "0.0.0.0" --http.port "8449" \
+  --ws --ws.addr "0.0.0.0" --ws.port "8450" \
+  --authrpc.addr "0.0.0.0" --authrpc.port "8451" \
   --authrpc.jwtsecret /jwt.hex \
-  --log.stdout.format=json \
-  --log.file.max-files=0 \
-  --disable-discovery \
-  --trusted-only \
+  --log.stdout.format=json --log.file.max-files=0 \
+  --disable-discovery --trusted-only \
   --trusted-peers ${SEQUENCER_ENODE} \
-  --abc.sequencer-http ${GELATO_PUBLIC_ENDPOINT}
+  --abc.sequencer-http ${SEQUENCER_RPC}
 ```
 
-Please note that all arguments marked with `${}`must be replaced accordingly.
+All values marked `${...}` must be replaced from your network's mainnet/testnet README.
